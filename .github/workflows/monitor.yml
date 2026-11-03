@@ -1,0 +1,50 @@
+name: Monitor de eventos
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Verificar eventos
+        run: python monitor.py
+        env:
+          PAGE_URL: https://www.pensanoevento.com.br/locais/1253/super-chill-bar
+          PAGE_MARKER: Super Chill Bar
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          WHATSAPP_APIKEY: ${{ secrets.WHATSAPP_APIKEY }}
+
+      # O commit mensal do heartbeat mantém o repositório ativo fora de temporada,
+      # quando seen.json fica meses sem mudar e o GitHub pausaria o agendamento.
+      - name: Salvar estado
+        if: always()
+        run: |
+          date -u +%Y-%m > heartbeat.txt
+          git add heartbeat.txt
+          [ -f seen.json ] && git add seen.json
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Atualiza estado do monitor"
+          git pull --rebase
+          git push
