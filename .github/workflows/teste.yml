@@ -1,0 +1,32 @@
+name: Teste de aviso
+
+on:
+  workflow_dispatch:
+
+jobs:
+  teste:
+    runs-on: ubuntu-latest
+    env:
+      PAGE_URL: https://www.pensanoevento.com.br/locais/1790/balburdia-cervejeira-florianopolis
+      PAGE_MARKER: Cervejeira
+      STATE_FILE: teste.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Salvar eventos atuais
+        run: python monitor.py
+
+      - name: Esquecer um evento
+        run: python -c "import json; s=json.load(open('teste.json')); s.pop(); json.dump(s, open('teste.json', 'w'))"
+
+      - name: Enviar aviso real
+        run: python monitor.py
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
